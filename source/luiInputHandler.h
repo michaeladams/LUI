@@ -20,6 +20,9 @@ PUBLISHED:
   LUIInputHandler(const string& name = string());
   virtual ~LUIInputHandler();
 
+  INLINE LUIBaseElement* focused() { return _focused_element; }
+  INLINE LUIBaseElement* hovered() { return _hover_element; }
+
 public:
 
   // Inherited from DataNode

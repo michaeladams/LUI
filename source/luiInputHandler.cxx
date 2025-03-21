@@ -190,6 +190,17 @@ void LUIInputHandler::process(LUIRoot* root) {
     if (_focused_element != nullptr) {
       trigger_event(_focused_element, "mousemove");
     }
+
+    // Notify all object which as mouse tracking
+    for (int i = 0; i < root->node()->get_child_count(); ++i) {
+      auto child = root->node()->get_child(i);
+      if ((child == _hover_element) || (child == _focused_element))
+        continue;
+
+      if (child->is_mousetracking()) {
+        trigger_event(child, "mousemove");
+      }
+    }
   }
 
   // Check for click events

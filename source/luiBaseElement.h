@@ -180,6 +180,15 @@ PUBLISHED:
   INLINE void set_debug_name(const string& debug_name);
   INLINE const string& get_debug_name() const;
 
+  // Mouse tracking
+  INLINE void set_mousetracking(bool value) {
+    _mouse_tracking = value;
+  }
+
+  INLINE bool is_mousetracking() {
+    return _mouse_tracking;
+  }
+
   // Properties for python
   MAKE_PROPERTY(name, get_name, set_name);
   MAKE_PROPERTY(debug_name, get_debug_name, set_debug_name);
@@ -216,6 +225,8 @@ PUBLISHED:
   MAKE_PROPERTY(clip_bounds, get_clip_bounds, set_clip_bounds);
   MAKE_PROPERTY(topmost, is_topmost, set_topmost);
   MAKE_PROPERTY(solid, get_solid, set_solid);
+
+  MAKE_PROPERTY(mousetracking, is_mousetracking, set_mousetracking);
 
 public:
 
@@ -320,6 +331,8 @@ protected:
 
   string _debug_name;
   string _name;
+
+  bool _mouse_tracking;
 
 public:
   static TypeHandle get_class_type() {
