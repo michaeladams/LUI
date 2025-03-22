@@ -15,6 +15,10 @@ INLINE LUIObject* LUIRegion::get_root() const {
   return _lui_root->node();
 }
 
+INLINE LUIRoot* LUIRegion::get_root_instance() const {
+  return _lui_root;
+}
+
 INLINE void LUIRegion::set_input_handler(LUIInputHandler* handler) {
   _input_handler = handler;
 }
