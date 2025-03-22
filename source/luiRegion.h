@@ -45,6 +45,8 @@ PUBLISHED:
                                    const LVecBase4& dimensions);
   INLINE LUIObject* get_root() const;
 
+  INLINE LUIRoot* get_root_instance() const;
+
   MAKE_PROPERTY(root, get_root);
 
   INLINE void set_input_handler(LUIInputHandler* handler);
