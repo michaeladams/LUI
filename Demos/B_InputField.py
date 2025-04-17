@@ -19,9 +19,14 @@ f.construct_sourcecode("LUIInputField")
 # Create 2 new buttons, and store them in a vertical layout
 field = LUIInputField(parent=f.get_widget_node())
 
+def setRandomText(field):
+    """ Sets a random text in the input field """
+    field.value = f"Text: {random.randint(100, 10000000)}"
+
+
 f.set_actions({
-        "Set Random Text": lambda: field.set_value(u"Text: " + unicode(random.randint(100, 10000000))),
+        "Set Random Text": lambda: setRandomText(field),
         "Clear": lambda: field.clear(),
     })
 
-run()
+base.run()

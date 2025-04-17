@@ -11,11 +11,16 @@
 
 #include <stdint.h>
 
-struct LUIVertexData {
-  float x, y, z;
-  unsigned char color[4];
-  float u, v;
-  uint16_t texindex;
+struct alignas(16) LUIVertexData {
+  float x, y, z;                           // 12 bytes
+  float u, v;                              // 8 bytes
+  float atlas_u1, atlas_v1;                // 8 bytes (aligned to 4 bytes)
+  float subregion_u_width, subregion_v_height;  // 8 bytes (aligned to 4 bytes)
+
+  unsigned char color[4];                  // 4 bytes
+  uint16_t texindex;                       // 2 bytes
+  int32_t wrap_flag;                       // 4 byte
+  unsigned char padding[6];                // 6 bytes
 };
 
 #endif
