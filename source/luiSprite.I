@@ -131,3 +131,11 @@ INLINE void LUISprite::init_size(float w, float h) {
   else if (h > 0.0)
     set_height(h);
 }
+
+INLINE void LUISprite::set_wrap_texture(bool wrap) {
+  _wrap_texture = wrap;
+}
+
+INLINE bool LUISprite::get_wrap_texture() const {
+  return _wrap_texture;
+}

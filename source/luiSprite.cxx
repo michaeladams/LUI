@@ -1,5 +1,3 @@
-
-
 #include "luiSprite.h"
 #include "luiRoot.h"
 
@@ -12,7 +10,7 @@ TypeHandle LUISprite::_type_handle;
 NotifyCategoryDef(luiSprite, ":lui");
 
 LUISprite::LUISprite(LUIText* parent_text)
-  : LUIBaseElement(nullptr) {
+  : LUIBaseElement(nullptr), _wrap_texture(false) { // Initialize _wrap_texture
   init((LUIObject*)parent_text, 0, 0, LColor(1));
   set_texture(nullptr, true);
 }
@@ -21,7 +19,7 @@ LUISprite::LUISprite(LUIText* parent_text)
 // Initialize with a path to an image
 LUISprite::LUISprite(PyObject* self, LUIObject* parent, const string& image,
                      float x, float y, float w, float h, const LColor& color)
-  : LUIBaseElement(self) {
+  : LUIBaseElement(self), _wrap_texture(false) { // Initialize _wrap_texture
   init(parent, x, y, color);
   set_texture(image, true);
   init_size(w, h);
@@ -30,7 +28,7 @@ LUISprite::LUISprite(PyObject* self, LUIObject* parent, const string& image,
 // Initialize with a texture handle
 LUISprite::LUISprite(PyObject* self, LUIObject* parent, Texture* texture,
                      float x, float y, float w, float h, const LColor& color)
-  : LUIBaseElement(self) {
+  : LUIBaseElement(self), _wrap_texture(false)  {
   init(parent, x, y, color);
   set_texture(texture, true);
   init_size(w, h);
@@ -39,7 +37,7 @@ LUISprite::LUISprite(PyObject* self, LUIObject* parent, Texture* texture,
 // Initialize with a atlas entry
 LUISprite::LUISprite(PyObject* self, LUIObject* parent, const string& entry_id,
                      const string& atlas_id, float x, float y, float w, float h, const LColor& color)
-  : LUIBaseElement(self) {
+  : LUIBaseElement(self), _wrap_texture(false)  {
   init(parent, x, y, color);
   set_texture(entry_id, atlas_id, true);
   init_size(w, h);
@@ -193,6 +191,28 @@ void LUISprite::recompute_vertices() {
   float u2 = _uv_end.get_x() - ROUND_MARGIN;
   float v2 = _uv_end.get_y() - ROUND_MARGIN;
 
+  // Get the texture size
+  int texture_width = _tex != nullptr ? _tex->get_x_size() : 1;
+  int texture_height = _tex != nullptr ? _tex->get_y_size() : 1;
+
+  // Avoid division by zero
+  if (texture_width == 0) texture_width = 1;
+  if (texture_height == 0) texture_height = 1;
+
+  // Calculate the size of the atlas sub-region
+  float atlas_u1 = _uv_begin.get_x();
+  float atlas_v1 = _uv_begin.get_y();
+  float atlas_u2 = _uv_end.get_x();
+  float atlas_v2 = _uv_end.get_y();
+
+  // Calculate the size of the sub-region in texture space
+  float atlas_width = atlas_u2 - atlas_u1;
+  float atlas_height = atlas_v2 - atlas_v1;
+
+  // Calculate the clipped size of the sprite
+  float clipped_width = nx2 - nx1;
+  float clipped_height = ny2 - ny1;
+
   // Compute texcoord-per-pixel factor
   float upp = 0, vpp = 0;
 
@@ -204,7 +224,6 @@ void LUISprite::recompute_vertices() {
     vpp = (v2 - v1) / (y2 - y1);
   }
 
-  // Adjust texcoord (clipping)
   u1 += (nx1 - x1) * upp;
   u2 += (nx2 - x2) * upp;
   v1 += (ny1 - y1) * vpp;
@@ -220,6 +239,28 @@ void LUISprite::recompute_vertices() {
   _data[3].x = nx1;
   _data[3].z = ny2;
 
+  // Handle scaling to actual pixel size if _wrap_texture is enabled
+  if (_wrap_texture) {
+    float sprite_width = _effective_size.get_x();
+    float sprite_height = _effective_size.get_y();
+
+    // Scale UVs based on the clipped region
+    float scaled_u_width = clipped_width / texture_width;
+    float scaled_v_height = clipped_height / texture_height;
+
+    // Wrap UVs within the clipped region
+    u1 = fmod(u1, scaled_u_width);
+    v1 = fmod(v1, scaled_v_height);
+    u2 = u1 + scaled_u_width;
+    v2 = v1 + scaled_v_height;
+
+    // Ensure UVs are positive
+    if (u1 < 0.0f) u1 += scaled_u_width;
+    if (v1 < 0.0f) v1 += scaled_v_height;
+    if (u2 < 0.0f) u2 += scaled_u_width;
+    if (v2 < 0.0f) v2 += scaled_v_height;
+  }
+
   // Update vertex texcoords
   _data[0].u = u1;
   _data[0].v = 1-v1;
@@ -231,8 +272,13 @@ void LUISprite::recompute_vertices() {
   _data[3].v = 1-v2;
 
   for (int i = 0; i < 4; i++) {
-    _data[i].texindex = _texture_index;
     _data[i].y = 0;
+    _data[i].texindex = static_cast<uint16_t>(_texture_index);
+    _data[i].atlas_u1 = u1;
+    _data[i].atlas_v1 = 1.0f - (v1);
+    _data[i].subregion_u_width = atlas_width;
+    _data[i].subregion_v_height = -(atlas_height);
+    _data[i].wrap_flag = _wrap_texture ? 1 : 0; // Set wrap_flag based on _wrap_texture
   }
 
   for (int i = 0; i < 4; i++) {

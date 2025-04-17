@@ -73,6 +73,9 @@ PUBLISHED:
 
   INLINE void print_vertices();
 
+  INLINE void set_wrap_texture(bool wrap);
+  INLINE bool get_wrap_texture() const;
+
   void ls(int indent = 0);
 
   // Python properties
@@ -135,6 +138,7 @@ public:
 
 private:
   static TypeHandle _type_handle;
+  bool _wrap_texture;
 };
 
 
