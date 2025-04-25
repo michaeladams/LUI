@@ -241,12 +241,20 @@ void LUISprite::recompute_vertices() {
 
   // Handle scaling to actual pixel size if _wrap_texture is enabled
   if (_wrap_texture) {
+    _data[0].x = x1;
+    _data[0].z = y1;
+    _data[1].x = x2;
+    _data[1].z = y1;
+    _data[2].x = x2;
+    _data[2].z = y2;
+    _data[3].x = x1;
+    _data[3].z = y2;
+
     float sprite_width = _effective_size.get_x();
     float sprite_height = _effective_size.get_y();
 
-    // Scale UVs based on the clipped region
-    float scaled_u_width = clipped_width / texture_width;
-    float scaled_v_height = clipped_height / texture_height;
+    float scaled_u_width = sprite_width / texture_width;
+    float scaled_v_height = sprite_height / texture_height;
 
     // Wrap UVs within the clipped region
     u1 = fmod(u1, scaled_u_width);
@@ -274,11 +282,15 @@ void LUISprite::recompute_vertices() {
   for (int i = 0; i < 4; i++) {
     _data[i].y = 0;
     _data[i].texindex = static_cast<uint16_t>(_texture_index);
-    _data[i].atlas_u1 = u1;
-    _data[i].atlas_v1 = 1.0f - (v1);
+    _data[i].atlas_u1 = _uv_begin.get_x() + ROUND_MARGIN;
+    _data[i].atlas_v1 = 1.0f - (_uv_begin.get_y() + ROUND_MARGIN);
     _data[i].subregion_u_width = atlas_width;
     _data[i].subregion_v_height = -(atlas_height);
     _data[i].wrap_flag = _wrap_texture ? 1 : 0; // Set wrap_flag based on _wrap_texture
+    _data[i].clip_x1 = bnds_x1;
+    _data[i].clip_y1 = bnds_y1;
+    _data[i].clip_x2 = bnds_x2;
+    _data[i].clip_y2 = bnds_y2;
   }
 
   for (int i = 0; i < 4; i++) {

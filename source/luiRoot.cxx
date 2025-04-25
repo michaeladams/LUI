@@ -30,8 +30,8 @@ LUIRoot::LUIRoot(float width, float height) :
   array_format->add_column(InternalName::make("color"), 4, Geom::NT_uint8, Geom::C_color);
   array_format->add_column(InternalName::make("texindex"), 1, Geom::NT_uint16, Geom::C_other);
   array_format->add_column(InternalName::make("wrap_flag"), 1, Geom::NT_int32, Geom::C_other);
-
-  array_format->set_stride(64);
+  array_format->add_column(InternalName::make("clipBounds"), 4, Geom::NT_float32, Geom::C_other);
+  array_format->set_stride(80);
 
   PT(GeomVertexFormat) unregistered_format = new GeomVertexFormat();
   unregistered_format->add_array(array_format);
@@ -129,12 +129,14 @@ PT(Shader) LUIRoot::create_object_shader() {
       "in int wrap_flag;\n"
       "in vec2 atlasUV;\n"
       "in vec2 subregionSize;\n"
+      "in vec4 clipBounds;\n"
       "out vec2 texcoord;\n"
       "flat out uint vtx_texindex;\n"
       "out vec4 color_scale;\n"
       "flat out int wrap_flag_fs;\n"
       "out vec2 fragAtlasUV;\n"
       "out vec2 fragSubregionSize;\n"
+      "out vec4 fragClipBounds;\n"
       "void main() {\n"
       "  texcoord = p3d_MultiTexCoord0;\n"
       "  color_scale = color;\n"
@@ -142,6 +144,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "  gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;\n"
       "  wrap_flag_fs = wrap_flag;\n"
       "  fragAtlasUV = atlasUV;\n"
+      "  fragClipBounds = clipBounds;\n"
       "  fragSubregionSize = subregionSize;\n"
       "}\n"
       ,
@@ -153,6 +156,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "in vec4 color_scale;\n"
       "in vec2 fragAtlasUV;\n"
       "in vec2 fragSubregionSize;\n"
+      "in vec4 fragClipBounds;\n"
       "uniform sampler2D lui_texture_0;\n"
       "uniform sampler2D lui_texture_1;\n"
       "uniform sampler2D lui_texture_2;\n"
@@ -161,8 +165,17 @@ PT(Shader) LUIRoot::create_object_shader() {
       "uniform sampler2D lui_texture_5;\n"
       "uniform sampler2D lui_texture_6;\n"
       "uniform sampler2D lui_texture_7;\n"
+      "uniform float screen_width;\n"
+      "uniform float screen_height;\n"
       "out vec4 color;\n"
       "void main() {\n"
+      "  vec2 fragPos = gl_FragCoord.xy;\n"
+      "  vec4 skipColor = vec4(1, 1, 1, 1);\n"
+      "  // Check if the fragment is outside the clipping bounds\n"
+      "  if ((fragPos.x < fragClipBounds.x || fragPos.x > fragClipBounds.z ||\n"
+      "      screen_height - fragPos.y < fragClipBounds.y || screen_height - fragPos.y > fragClipBounds.w)) {\n"
+      "    skipColor = vec4(0,0,0,0); // Skip rendering by setting transparent.\n"
+      "  }\n"
       "  vec2 mod_uv = vec2(mod(texcoord, fragSubregionSize)) + (fragAtlasUV);\n"
       "  vec2 final_uv = (wrap_flag_fs == 1) ? mod_uv : texcoord;\n"
       "  vec4 texcolor = vec4(0, 0, 0, 1);\n"
@@ -176,7 +189,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "    case 6u: texcolor = texture(lui_texture_6, final_uv); break;\n"
       "    case 7u: texcolor = texture(lui_texture_7, final_uv); break;\n"
       "  }\n"
-      "  color = texcolor * color_scale;\n"
+      "  color = texcolor * color_scale * skipColor;\n"
       "}\n"
       );
   } else {
@@ -187,6 +200,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "attribute vec4 p3d_Vertex;\n"
       "attribute float texindex;\n"
       "attribute vec4 color;\n"
+      "attribute vec4 clipBounds;\n"
       "attribute uint wrap_flag;\n"
       "attribute vec2 atlasUV;\n"
       "attribute vec2 subregionSize;\n"
@@ -194,6 +208,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "varying vec2 texcoord;\n"
       "varying float vtx_texindex;\n"
       "varying vec4 color_scale;\n"
+      "varying vec4 fragClipBounds;\n"
       "flat varying uint wrap_flag_fs;\n"
       "varying vec2 fragAtlasUV;\n"
       "varying vec2 fragSubregionSize;\n"
@@ -203,6 +218,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "  vtx_texindex = texindex;\n"
       "  wrap_flag_fs = wrap_flag;\n"
       "  fragAtlasUV = atlasUV;\n"
+      "  fragClipBounds = clipBounds;\n"
       "  fragSubregionSize = subregionSize;\n"
       "  gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;\n"
       "}\n"
@@ -213,6 +229,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "varying vec2 texcoord;\n"
       "varying float vtx_texindex;\n"
       "varying vec4 color_scale;\n"
+      "varying vec4 fragClipBounds;\n"
       "uniform sampler2D lui_texture_0;\n"
       "uniform sampler2D lui_texture_1;\n"
       "uniform sampler2D lui_texture_2;\n"
@@ -221,10 +238,19 @@ PT(Shader) LUIRoot::create_object_shader() {
       "uniform sampler2D lui_texture_5;\n"
       "uniform sampler2D lui_texture_6;\n"
       "uniform sampler2D lui_texture_7;\n"
+      "uniform float screen_width;\n"
+      "uniform float screen_height;\n"
       "flat varying uint wrap_flag_fs;\n"
       "varying vec2 fragAtlasUV;\n"
       "varying vec2 fragSubregionSize;\n"
       "void main() {\n"
+      "  vec2 fragPos = gl_FragCoord.xy;\n"
+      "  vec4 skipColor = vec4(1, 1, 1, 1);\n"
+      "  // Check if the fragment is outside the clipping bounds\n"
+      "  if ((fragPos.x < fragClipBounds.x || fragPos.x > fragClipBounds.z ||\n"
+      "      screen_height - fragPos.y < fragClipBounds.y || screen_height - fragPos.y > fragClipBounds.w)) {\n"
+      "    skipColor = vec4(0,0,0,0); // Skip rendering by setting transparent.\n"
+      "  }\n"
       "  vec2 mod_uv = vec2(mod(texcoord, fragSubregionSize)) + (fragAtlasUV);\n"
       "  vec2 final_uv = (wrap_flag_fs == 1u) ? mod_uv : texcoord;\n"
       "  vec4 texcolor = vec4(0.1, 0.0, 0.0, 1.0);\n"
@@ -238,7 +264,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "  if (vtx_texindex >  5.5 && vtx_texindex < 6.5) texcolor = texture2D(lui_texture_6, final_uv); \n"
       "  if (vtx_texindex >  6.5 && vtx_texindex < 7.5) texcolor = texture2D(lui_texture_7, final_uv); \n"
 
-      "  gl_FragColor = vec4(texcolor * color_scale);\n"
+      "  gl_FragColor = vec4(texcolor * color_scale * skipColor);\n"
       "}\n"
       );
   }

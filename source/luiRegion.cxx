@@ -78,8 +78,14 @@ void LUIRegion::
           shaderAttrib = DCAST(ShaderAttrib, shaderAttrib)->set_shader_input(
             InternalName::make(sstm.str()), _empty_tex);
       }
-
     }
+
+    shaderAttrib = DCAST(ShaderAttrib, shaderAttrib)->set_shader_input(
+      InternalName::make("screen_width"), _width
+    );
+    shaderAttrib = DCAST(ShaderAttrib, shaderAttrib)->set_shader_input(
+      InternalName::make("screen_height"), _height
+    );
 
     shaderAttrib = DCAST(ShaderAttrib, shaderAttrib)->set_shader(_object_shader);
 
