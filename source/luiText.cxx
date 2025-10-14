@@ -311,3 +311,8 @@ vector<int> LUIText::get_line_breaks() {
   return result;
 
 }
+
+void LUIText::set_color(const LColor& color) {
+  LUIObject::set_color(color);
+  update_text(); // Re-render text with new color
+}

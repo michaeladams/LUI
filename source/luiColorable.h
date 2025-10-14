@@ -15,7 +15,7 @@ class EXPCL_LUI LUIColorable {
 PUBLISHED:
 
   // Color
-  INLINE void set_color(const LColor& color);
+  virtual void set_color(const LColor& color);
   INLINE void set_color(const LVecBase3& rgb);
   INLINE void set_color(float r, float g, float b, float a = 1.0);
 
