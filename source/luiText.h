@@ -46,6 +46,7 @@ PUBLISHED:
   float get_char_pos(int char_index) const;
 
   virtual void ls(int indent = 0);
+  virtual void set_color(const LColor& color) override;
 
   MAKE_PROPERTY(font, get_font, set_font);
   MAKE_PROPERTY(text, get_text, set_text);
