@@ -139,3 +139,34 @@ INLINE void LUISprite::set_wrap_texture(bool wrap) {
 INLINE bool LUISprite::get_wrap_texture() const {
   return _wrap_texture;
 }
+
+INLINE void LUISprite::set_glow(float radius, const LColor& color) {
+  _glow_radius = radius;
+  _glow_color = color;
+}
+
+INLINE void LUISprite::set_glow_radius(float radius) {
+  _glow_radius = radius;
+}
+
+INLINE void LUISprite::set_glow_color(const LColor& color) {
+  _glow_color = color;
+}
+
+INLINE float LUISprite::get_glow_radius() const {
+  return _glow_radius;
+}
+
+INLINE const LColor& LUISprite::get_glow_color() const {
+  return _glow_color;
+}
+
+INLINE void LUISprite::set_clamp_uv_range(float u0, float v0, float u1, float v1) {
+  _clamp_uv_begin.set(u0, v0);
+  _clamp_uv_end.set(u1, v1);
+  _have_clamp_uv = true;
+}
+
+INLINE void LUISprite::clear_clamp_uv_range() {
+  _have_clamp_uv = false;
+}
