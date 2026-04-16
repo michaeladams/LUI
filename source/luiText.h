@@ -42,6 +42,19 @@ PUBLISHED:
   INLINE void set_wordwrap(bool wrap);
   INLINE bool get_wordwrap() const;
 
+  // Glow effect — radius in UV units (e.g. 0.01 ≈ 2-3px on a 256px font page).
+  // Use set_glow() to configure both at once, or set individually.
+  INLINE void set_glow(float radius, const LColor& color);
+  INLINE void set_glow_radius(float radius);
+  INLINE void set_glow_color(const LColor& color);
+  INLINE float get_glow_radius() const;
+  INLINE const LColor& get_glow_color() const;
+
+  // When true this LUIText renders only the outer glow halo (expanded quads,
+  // no base texture). Used by LUILabel to layer a glow behind the main text.
+  INLINE void set_glow_pass_only(bool pass_only);
+  INLINE bool get_glow_pass_only() const;
+
   int get_char_index(float pos) const;
   float get_char_pos(int char_index) const;
 
@@ -50,6 +63,9 @@ PUBLISHED:
   MAKE_PROPERTY(font, get_font, set_font);
   MAKE_PROPERTY(text, get_text, set_text);
   MAKE_PROPERTY(font_size, get_font_size, set_font_size);
+  MAKE_PROPERTY(glow_radius, get_glow_radius, set_glow_radius);
+  MAKE_PROPERTY(glow_color, get_glow_color, set_glow_color);
+  MAKE_PROPERTY(glow_pass_only, get_glow_pass_only, set_glow_pass_only);
 
 protected:
 
@@ -60,6 +76,9 @@ protected:
   wstring _text;
   float _font_size;
   bool _wordwrap;
+  float _glow_radius_px;
+  LColor _glow_color;
+  bool _glow_pass_only;
   pvector<CPT(DynamicTextGlyph)> _glyphs;
 
 

@@ -10,7 +10,8 @@ TypeHandle LUISprite::_type_handle;
 NotifyCategoryDef(luiSprite, ":lui");
 
 LUISprite::LUISprite(LUIText* parent_text)
-  : LUIBaseElement(nullptr), _wrap_texture(false) { // Initialize _wrap_texture
+  : LUIBaseElement(nullptr), _wrap_texture(false), _glow_color(LColor(1,1,1,1)), _glow_radius(0.0f),
+    _have_clamp_uv(false) {
   init((LUIObject*)parent_text, 0, 0, LColor(1));
   set_texture(nullptr, true);
 }
@@ -19,7 +20,8 @@ LUISprite::LUISprite(LUIText* parent_text)
 // Initialize with a path to an image
 LUISprite::LUISprite(PyObject* self, LUIObject* parent, const string& image,
                      float x, float y, float w, float h, const LColor& color)
-  : LUIBaseElement(self), _wrap_texture(false) { // Initialize _wrap_texture
+  : LUIBaseElement(self), _wrap_texture(false), _glow_color(LColor(1,1,1,1)), _glow_radius(0.0f),
+    _have_clamp_uv(false) {
   init(parent, x, y, color);
   set_texture(image, true);
   init_size(w, h);
@@ -28,7 +30,8 @@ LUISprite::LUISprite(PyObject* self, LUIObject* parent, const string& image,
 // Initialize with a texture handle
 LUISprite::LUISprite(PyObject* self, LUIObject* parent, Texture* texture,
                      float x, float y, float w, float h, const LColor& color)
-  : LUIBaseElement(self), _wrap_texture(false)  {
+  : LUIBaseElement(self), _wrap_texture(false), _glow_color(LColor(1,1,1,1)), _glow_radius(0.0f),
+    _have_clamp_uv(false) {
   init(parent, x, y, color);
   set_texture(texture, true);
   init_size(w, h);
@@ -37,7 +40,8 @@ LUISprite::LUISprite(PyObject* self, LUIObject* parent, Texture* texture,
 // Initialize with a atlas entry
 LUISprite::LUISprite(PyObject* self, LUIObject* parent, const string& entry_id,
                      const string& atlas_id, float x, float y, float w, float h, const LColor& color)
-  : LUIBaseElement(self), _wrap_texture(false)  {
+  : LUIBaseElement(self), _wrap_texture(false), _glow_color(LColor(1,1,1,1)), _glow_radius(0.0f),
+    _have_clamp_uv(false) {
   init(parent, x, y, color);
   set_texture(entry_id, atlas_id, true);
   init_size(w, h);
@@ -199,11 +203,15 @@ void LUISprite::recompute_vertices() {
   if (texture_width == 0) texture_width = 1;
   if (texture_height == 0) texture_height = 1;
 
-  // Calculate the size of the atlas sub-region
-  float atlas_u1 = _uv_begin.get_x();
-  float atlas_v1 = _uv_begin.get_y();
-  float atlas_u2 = _uv_end.get_x();
-  float atlas_v2 = _uv_end.get_y();
+  // Calculate the size of the atlas sub-region.
+  // If an explicit clamp UV range is set (e.g. glow pass with expanded vertex UVs),
+  // use that for the atlas bounds so the shader clamps kernel samples to the original glyph.
+  const LTexCoord& clamp_begin = _have_clamp_uv ? _clamp_uv_begin : _uv_begin;
+  const LTexCoord& clamp_end   = _have_clamp_uv ? _clamp_uv_end   : _uv_end;
+  float atlas_u1 = clamp_begin.get_x();
+  float atlas_v1 = clamp_begin.get_y();
+  float atlas_u2 = clamp_end.get_x();
+  float atlas_v2 = clamp_end.get_y();
 
   // Calculate the size of the sub-region in texture space
   float atlas_width = atlas_u2 - atlas_u1;
@@ -282,8 +290,8 @@ void LUISprite::recompute_vertices() {
   for (int i = 0; i < 4; i++) {
     _data[i].y = 0;
     _data[i].texindex = static_cast<uint16_t>(_texture_index);
-    _data[i].atlas_u1 = _uv_begin.get_x() + ROUND_MARGIN;
-    _data[i].atlas_v1 = 1.0f - (_uv_begin.get_y() + ROUND_MARGIN);
+    _data[i].atlas_u1 = atlas_u1 + ROUND_MARGIN;
+    _data[i].atlas_v1 = 1.0f - (atlas_v1 + ROUND_MARGIN);
     _data[i].subregion_u_width = atlas_width;
     _data[i].subregion_v_height = -(atlas_height);
     _data[i].wrap_flag = _wrap_texture ? 1 : 0; // Set wrap_flag based on _wrap_texture
@@ -298,6 +306,14 @@ void LUISprite::recompute_vertices() {
     _data[i].color[1] = (unsigned char) (_composed_color.get_y() * 255.0);
     _data[i].color[2] = (unsigned char) (_composed_color.get_z() * 255.0);
     _data[i].color[3] = (unsigned char) (_composed_color.get_w() * 255.0);
+  }
+
+  for (int i = 0; i < 4; i++) {
+    _data[i].glow_color[0] = (unsigned char) (_glow_color.get_x() * 255.0);
+    _data[i].glow_color[1] = (unsigned char) (_glow_color.get_y() * 255.0);
+    _data[i].glow_color[2] = (unsigned char) (_glow_color.get_z() * 255.0);
+    _data[i].glow_color[3] = (unsigned char) (_glow_color.get_w() * 255.0);
+    _data[i].glow_radius   = _glow_radius;
   }
 
   // Finished positioning, and will appear at next render pass.
@@ -326,8 +342,15 @@ void LUISprite::render_recursive(bool is_topmost_pass, bool render_anyway) {
 
   // We should have a root
   nassertv(_root != nullptr);
-  // We also should have a index
-  nassertv(_sprite_index >= 0);
+
+  // Guard: sprite may have lost its index if update_text ran while a render
+  // pass was already in progress (text changed mid-frame). Skip silently.
+  if (_sprite_index < 0) {
+    if (luiSprite_cat.is_debug()) {
+      luiSprite_cat.debug() << "Skipping render_recursive: sprite has no assigned index (text changed mid-frame?)" << endl;
+    }
+    return;
+  }
 
   fetch_render_index();
   recompute_vertices();

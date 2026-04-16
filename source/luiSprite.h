@@ -64,6 +64,13 @@ PUBLISHED:
   INLINE const LTexCoord& get_uv_begin() const;
   INLINE const LTexCoord& get_uv_end() const;
 
+  // Override the atlas UV bounds used for shader-side glyph clamping,
+  // independently of the interpolated vertex texcoords. Used by the
+  // glow pass which expands vertex UVs beyond the glyph but still needs
+  // to clamp kernel samples to the original glyph region.
+  INLINE void set_clamp_uv_range(float u0, float v0, float u1, float v1);
+  INLINE void clear_clamp_uv_range();
+
   // Texture
   INLINE void set_texture(Texture* tex, bool resize=true);
   INLINE void set_texture(const LUIAtlasDescriptor& descriptor, bool resize=true);
@@ -75,6 +82,12 @@ PUBLISHED:
 
   INLINE void set_wrap_texture(bool wrap);
   INLINE bool get_wrap_texture() const;
+
+  INLINE void set_glow(float radius, const LColor& color);
+  INLINE void set_glow_radius(float radius);
+  INLINE void set_glow_color(const LColor& color);
+  INLINE float get_glow_radius() const;
+  INLINE const LColor& get_glow_color() const;
 
   void ls(int indent = 0);
 
@@ -111,6 +124,10 @@ protected:
   // Stores texture coordinates
   LTexCoord _uv_begin;
   LTexCoord _uv_end;
+  // Optional separate clamp UV bounds (for glow pass UV expansion)
+  LTexCoord _clamp_uv_begin;
+  LTexCoord _clamp_uv_end;
+  bool _have_clamp_uv;
 
   PT(Texture) _tex;
 
@@ -139,6 +156,8 @@ public:
 private:
   static TypeHandle _type_handle;
   bool _wrap_texture;
+  LColor _glow_color;
+  float _glow_radius;
 };
 
 

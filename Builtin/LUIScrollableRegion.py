@@ -147,6 +147,7 @@ class LUIScrollableRegion(LUIObject):
         """ Scrolls by a percentage amount, default is 10% """
         new_percentage = self.get_scroll_percentage() - amount
         self.set_scroll_percentage(new_percentage)
+        print('test')
 
     scroll_percentage = property(get_scroll_percentage, set_scroll_percentage)
 

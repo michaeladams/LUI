@@ -10,7 +10,10 @@ LUIText::LUIText(PyObject* self, LUIObject* parent, const wstring& text,
   LUIObject(self, parent, x, y, parent->get_parent_width(), parent->get_parent_width(), false, visible),
   _text(text),
   _font_size(font_size),
-  _wordwrap(wordwrap) {
+  _wordwrap(wordwrap),
+  _glow_radius_px(0.0f),
+  _glow_color(LColor(1, 1, 1, 1)),
+  _glow_pass_only(false) {
   set_font(font_name);
 }
 
@@ -60,6 +63,7 @@ void LUIText::update_text() {
   int char_idx = 0;
   float current_x_pos = 0.0f;
   float current_y_pos = 0.0f;
+  float max_x_pos = 0.0f;
 
   for (auto it = _children.begin(); it != _children.end(); ++it, ++char_idx)
   {
@@ -77,8 +81,10 @@ void LUIText::update_text() {
     const TextGlyph* const_glyph;
 #endif
 
-    // Newline
-    if (_wordwrap && char_code == 10) {
+    // Newline — handled for both wordwrap and non-wordwrap modes
+    if (char_code == 10) {
+      sprite->hide();
+      if (current_x_pos > max_x_pos) max_x_pos = current_x_pos;
       current_x_pos = 0;
       current_y_pos += floor(line_height * ppu);
       continue;
@@ -116,22 +122,59 @@ void LUIText::update_text() {
       // change, this is quite efficient.
       sprite->set_texture(dynamic_glyph->get_page());
 
-      // Position the glyph.
-      sprite->set_pos(
-        current_x_pos + dynamic_glyph->get_left() * ppu,
-        (0.85 - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos);
+      if (_glow_pass_only && _glow_radius_px > 0.0f) {
+        // Outer glow pass: expand the quad by 2× the kernel radius.
+        // The kernel samples at radius r — so at distance r from the glyph
+        // the kernel is already half-occluded (ga ~= 0.5). We need an extra r
+        // of border beyond that for ga to decay all the way to 0 smoothly.
+        // Expanding by 1× clips the gradient midway; 2× lets it reach zero.
+        float exp = _glow_radius_px * 2.0f;
 
-      // The V coordinate is inverted, as panda stores the textures flipped
-      sprite->set_uv_range(
-        dynamic_glyph->get_uv_left(),
-        1 - dynamic_glyph->get_uv_top(),
-        dynamic_glyph->get_uv_right(),
-        1 - dynamic_glyph->get_uv_bottom());
+        int tex_w = dynamic_glyph->get_page()->get_x_size();
+        int tex_h = dynamic_glyph->get_page()->get_y_size();
+        if (tex_w < 1) tex_w = 1;
+        if (tex_h < 1) tex_h = 1;
+        float uv_exp_u = exp / (float)tex_w;
+        float uv_exp_v = exp / (float)tex_h;
 
-      // Determine size from coordinates
-      sprite->set_size(
-         (dynamic_glyph->get_right() - dynamic_glyph->get_left()) * ppu,
-         (dynamic_glyph->get_top() - dynamic_glyph->get_bottom()) * ppu);
+        sprite->set_pos(
+          current_x_pos + dynamic_glyph->get_left() * ppu - exp,
+          (0.85 - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos - exp);
+        // Expand vertex UVs so final_uv at the border is outside the glyph UV
+        // region. The shader's distance falloff then fades ga to 0 at the edge.
+        sprite->set_uv_range(
+          dynamic_glyph->get_uv_left()       - uv_exp_u,
+          1 - dynamic_glyph->get_uv_top()    - uv_exp_v,
+          dynamic_glyph->get_uv_right()      + uv_exp_u,
+          1 - dynamic_glyph->get_uv_bottom() + uv_exp_v);
+        // Keep the kernel clamp at the ORIGINAL glyph bounds so samples never
+        // bleed into neighbouring atlas glyphs.
+        sprite->set_clamp_uv_range(
+          dynamic_glyph->get_uv_left(),
+          1 - dynamic_glyph->get_uv_top(),
+          dynamic_glyph->get_uv_right(),
+          1 - dynamic_glyph->get_uv_bottom());
+        sprite->set_size(
+          (dynamic_glyph->get_right() - dynamic_glyph->get_left()) * ppu + 2.0f * exp,
+          (dynamic_glyph->get_top()   - dynamic_glyph->get_bottom()) * ppu + 2.0f * exp);
+        // Negative radius signals the shader to render only the halo, not the base glyph.
+        sprite->set_glow(-_glow_radius_px, _glow_color);
+      } else {
+        // Normal glyph layout.
+        sprite->clear_clamp_uv_range();
+        sprite->set_pos(
+          current_x_pos + dynamic_glyph->get_left() * ppu,
+          (0.85 - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos);
+        sprite->set_uv_range(
+          dynamic_glyph->get_uv_left(),
+          1 - dynamic_glyph->get_uv_top(),
+          dynamic_glyph->get_uv_right(),
+          1 - dynamic_glyph->get_uv_bottom());
+        sprite->set_size(
+          (dynamic_glyph->get_right() - dynamic_glyph->get_left()) * ppu,
+          (dynamic_glyph->get_top()   - dynamic_glyph->get_bottom()) * ppu);
+        sprite->set_glow(_glow_radius_px > 0.0f ? _glow_radius_px : 0.0f, _glow_color);
+      }
 
       sprite->set_color(_color);
     }
@@ -151,6 +194,7 @@ void LUIText::update_text() {
 
       // Move *cursor* by glyph length
       current_x_pos += dynamic_glyph->get_advance() * ppu;
+      if (current_x_pos > max_x_pos) max_x_pos = current_x_pos;
 
     }
 
@@ -161,7 +205,7 @@ void LUIText::update_text() {
     set_size( get_parent_width(), floor(current_y_pos + line_height * ppu));
   }
   else {
-    set_size( floor(current_x_pos), floor(line_height * ppu));
+    set_size( floor(max_x_pos), floor(current_y_pos + line_height * ppu));
   }
 }
 

@@ -20,7 +20,9 @@ struct alignas(16) LUIVertexData {
   uint16_t texindex;                       // 2 bytes
   int32_t wrap_flag;                       // 4 byte
   float clip_x1, clip_y1, clip_x2, clip_y2; // 16 bytes
-  unsigned char padding[6];                // 6 bytes
+  unsigned char glow_color[4];             // 4 bytes — glow RGBA (0 alpha = no glow)
+  float glow_radius;                       // 4 bytes — glow sample radius in UV units
+  // alignas(16) pads struct to 80 bytes total
 };
 
 #endif
