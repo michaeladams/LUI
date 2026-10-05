@@ -33,6 +33,7 @@ LUIBaseElement::LUIBaseElement(PyObject* self, bool visible, bool positioned) :
   _snap_position(true),
   _focused(false),
   _solid(false),
+  _ignore_parent_color(false),
   _margin(0.0f),
   _padding(0.0f),
   _clip_bounds(0.0f, 0.0f, 1e6, 1e6),
@@ -413,7 +414,7 @@ void LUIBaseElement::update_downstream() {
     update_dimensions();
 
     // Update the color
-    compose_color(_parent->get_composed_color());
+    compose_color(_ignore_parent_color ? LColor(1) : _parent->get_composed_color());
   } else {
 
     // When we have no parent, we are the root, so we don't need a good position.

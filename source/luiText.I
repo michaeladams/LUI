@@ -73,3 +73,36 @@ INLINE void LUIText::set_glow_pass_only(bool pass_only) {
 INLINE bool LUIText::get_glow_pass_only() const {
   return _glow_pass_only;
 }
+
+INLINE void LUIText::set_background_color(const LColor& color) {
+  if (_background_color != color) {
+    _background_color = color;
+    sync_background_sprite();
+  }
+}
+
+INLINE const LColor& LUIText::get_background_color() const {
+  return _background_color;
+}
+
+INLINE void LUIText::set_background_ignore_parent_color(bool ignore_parent_color) {
+  _background_ignore_parent_color = ignore_parent_color;
+  if (_background_sprite != nullptr) {
+    _background_sprite->set_ignore_parent_color(ignore_parent_color);
+  }
+}
+
+INLINE bool LUIText::get_background_ignore_parent_color() const {
+  return _background_ignore_parent_color;
+}
+
+INLINE void LUIText::set_text_ignore_parent_color(bool ignore_parent_color) {
+  if (_text_ignore_parent_color != ignore_parent_color) {
+    _text_ignore_parent_color = ignore_parent_color;
+    update_text();
+  }
+}
+
+INLINE bool LUIText::get_text_ignore_parent_color() const {
+  return _text_ignore_parent_color;
+}

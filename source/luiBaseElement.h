@@ -155,6 +155,10 @@ PUBLISHED:
   INLINE void set_solid(bool solid);
   INLINE bool get_solid() const;
 
+  // Color composition
+  INLINE void set_ignore_parent_color(bool ignore_parent_color);
+  INLINE bool get_ignore_parent_color() const;
+
   // Z-Index
   void set_z_offset(float z_offset);
   INLINE float get_z_offset() const;
@@ -230,6 +234,7 @@ PUBLISHED:
   MAKE_PROPERTY(clip_bounds, get_clip_bounds, set_clip_bounds);
   MAKE_PROPERTY(topmost, is_topmost, set_topmost);
   MAKE_PROPERTY(solid, get_solid, set_solid);
+  MAKE_PROPERTY(ignore_parent_color, get_ignore_parent_color, set_ignore_parent_color);
 
   MAKE_PROPERTY(mousetracking, is_mousetracking, set_mousetracking);
 
@@ -313,6 +318,7 @@ protected:
   bool _snap_position;
   bool _focused;
   bool _solid;
+  bool _ignore_parent_color;
 
   // Margin and padding, relative to the element bounds
   LUIBounds _margin;

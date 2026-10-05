@@ -1180,6 +1180,14 @@ INLINE bool LUIBaseElement::get_solid() const {
   return _solid;
 }
 
+INLINE void LUIBaseElement::set_ignore_parent_color(bool ignore_parent_color) {
+  _ignore_parent_color = ignore_parent_color;
+}
+
+INLINE bool LUIBaseElement::get_ignore_parent_color() const {
+  return _ignore_parent_color;
+}
+
 /**
  * @brief Returns the x-extent of the element
  * @details This returns the maximum x-position of the element. This can be
