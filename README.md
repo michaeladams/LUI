@@ -8,9 +8,13 @@
 ### Requirements
 
 - **Panda3D SDK** (recent devel version)
+- **Third party libraries**
 - **CMake**
 
 ### Installation
+
+Get and extract the thirdparty libraries from:
+https://github.com/panda3d/panda3d/blob/master/README.md#windows
 
 Run `python update_module_builder.py`. This will create a build file in the current directory, which you can then run with `python build.py`.
 Now there should be a `lui.pyd` or `lui.so` depending on your system.

@@ -33,8 +33,8 @@ def download_submodule(author, module_name, dest_path, ignore_list):
         os.makedirs(dest_path)
 
     # Construct download url
-    source_url = "https://github.com/" + author + "/" + module_name + "/archive/master.zip"
-    prefix = module_name + "-master"
+    source_url = "https://github.com/" + author + "/" + module_name + "/archive/cosmonium.zip"
+    prefix = module_name + "-cosmonium"
     print("Fetching:", source_url)
 
     # Download the zip
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     ignore = ("__init__.py LICENSE README.md config.ini source/config_module.cpp "
         "source/config_module.h .travis.yml").split()
     curr_dir = os.path.dirname(os.path.realpath(__file__)); os.chdir(curr_dir);
-    download_submodule("tobspr", "P3DModuleBuilder", curr_dir, ignore)
+    download_submodule("cosmonium", "P3DModuleBuilder", curr_dir, ignore)
     with open("scripts/__init__.py", "w") as handle: pass
     try: os.remove(".gitignore")
     except: pass
