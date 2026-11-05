@@ -269,13 +269,13 @@ PT(Shader) LUIRoot::create_object_shader() {
   } else {
     return Shader::make(Shader::SL_GLSL,
       // Vertex
-      "#version 100\n"
+      "#version 120\n"
       "uniform mat4 p3d_ModelViewProjectionMatrix;\n"
       "attribute vec4 p3d_Vertex;\n"
       "attribute float texindex;\n"
       "attribute vec4 color;\n"
       "attribute vec4 clipBounds;\n"
-      "attribute uint wrap_flag;\n"
+      "attribute float wrap_flag;\n"
       "attribute vec2 atlasUV;\n"
       "attribute vec2 subregionSize;\n"
       "attribute vec2 p3d_MultiTexCoord0;\n"
@@ -285,7 +285,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "varying float vtx_texindex;\n"
       "varying vec4 color_scale;\n"
       "varying vec4 fragClipBounds;\n"
-      "flat varying uint wrap_flag_fs;\n"
+      "varying float wrap_flag_fs;\n"
       "varying vec2 fragAtlasUV;\n"
       "varying vec2 fragSubregionSize;\n"
       "varying vec4 vtx_glow_color;\n"
@@ -304,8 +304,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "}\n"
       ,
       // Fragment
-      "#version 100\n"
-      "precision mediump float;\n"
+      "#version 120\n"
       "varying vec2 texcoord;\n"
       "varying float vtx_texindex;\n"
       "varying vec4 color_scale;\n"
@@ -320,7 +319,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "uniform sampler2D lui_texture_7;\n"
       "uniform float screen_width;\n"
       "uniform float screen_height;\n"
-      "flat varying uint wrap_flag_fs;\n"
+      "varying float wrap_flag_fs;\n"
       "varying vec2 fragAtlasUV;\n"
       "varying vec2 fragSubregionSize;\n"
       "varying vec4 vtx_glow_color;\n"
@@ -353,7 +352,7 @@ PT(Shader) LUIRoot::create_object_shader() {
       "    skipColor = vec4(0,0,0,0); // Skip rendering by setting transparent.\n"
       "  }\n"
       "  vec2 mod_uv = vec2(mod(texcoord, fragSubregionSize)) + (fragAtlasUV);\n"
-      "  vec2 final_uv = (wrap_flag_fs == 1u) ? mod_uv : texcoord;\n"
+      "  vec2 final_uv = (wrap_flag_fs > 0.5) ? mod_uv : texcoord;\n"
       "  vec4 texcolor = vec4(0.1, 0.0, 0.0, 1.0);\n"
       // We can't even properly use defines with the GLES compiler .. that sucks
       "  if (vtx_texindex > -0.5 && vtx_texindex < 0.5) texcolor = texture2D(lui_texture_0, final_uv); \n"

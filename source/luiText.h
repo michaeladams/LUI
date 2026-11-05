@@ -55,6 +55,13 @@ PUBLISHED:
   INLINE void set_glow_pass_only(bool pass_only);
   INLINE bool get_glow_pass_only() const;
 
+  INLINE void set_background_color(const LColor& color);
+  INLINE const LColor& get_background_color() const;
+  INLINE void set_background_ignore_parent_color(bool ignore_parent_color);
+  INLINE bool get_background_ignore_parent_color() const;
+  INLINE void set_text_ignore_parent_color(bool ignore_parent_color);
+  INLINE bool get_text_ignore_parent_color() const;
+
   int get_char_index(float pos) const;
   float get_char_pos(int char_index) const;
 
@@ -67,9 +74,14 @@ PUBLISHED:
   MAKE_PROPERTY(glow_radius, get_glow_radius, set_glow_radius);
   MAKE_PROPERTY(glow_color, get_glow_color, set_glow_color);
   MAKE_PROPERTY(glow_pass_only, get_glow_pass_only, set_glow_pass_only);
+  MAKE_PROPERTY(background_color, get_background_color, set_background_color);
+  MAKE_PROPERTY(background_ignore_parent_color, get_background_ignore_parent_color, set_background_ignore_parent_color);
+  MAKE_PROPERTY(text_ignore_parent_color, get_text_ignore_parent_color, set_text_ignore_parent_color);
 
 protected:
 
+  void ensure_background_sprite();
+  void sync_background_sprite();
   void update_text();
   vector<int> get_line_breaks();
 
@@ -80,6 +92,10 @@ protected:
   float _glow_radius_px;
   LColor _glow_color;
   bool _glow_pass_only;
+  LColor _background_color;
+  bool _background_ignore_parent_color;
+  bool _text_ignore_parent_color;
+  PT(LUISprite) _background_sprite;
   pvector<CPT(DynamicTextGlyph)> _glyphs;
 
 

@@ -1,4 +1,3 @@
-
 #include "luiText.h"
 #include "pandaVersion.h"
 
@@ -13,12 +12,41 @@ LUIText::LUIText(PyObject* self, LUIObject* parent, const wstring& text,
   _wordwrap(wordwrap),
   _glow_radius_px(0.0f),
   _glow_color(LColor(1, 1, 1, 1)),
-  _glow_pass_only(false) {
+  _glow_pass_only(false),
+  _background_color(LColor(0, 0, 0, 0)),
+  _background_ignore_parent_color(false),
+  _text_ignore_parent_color(false),
+  _background_sprite(nullptr) {
   set_font(font_name);
 }
 
 LUIText::~LUIText() {
+}
 
+void LUIText::ensure_background_sprite() {
+  if (_background_sprite == nullptr) {
+    _background_sprite = new LUISprite(nullptr, this, "fill", "skin", 0.0f, 0.0f, 1.0f, 1.0f, LColor(1));
+    _background_sprite->set_snap_position(false);
+    _background_sprite->set_z_offset(-1.0f);
+  }
+}
+
+void LUIText::sync_background_sprite() {
+  ensure_background_sprite();
+  if (_background_sprite == nullptr) {
+    return;
+  }
+
+  _background_sprite->set_ignore_parent_color(_background_ignore_parent_color);
+  _background_sprite->set_color(_background_color);
+  _background_sprite->set_pos(0.0f, 0.0f);
+  _background_sprite->set_size(get_width(), get_height());
+
+  if (_background_color.get_w() > 0.0f) {
+    _background_sprite->show();
+  } else {
+    _background_sprite->hide();
+  }
 }
 
 void LUIText::update_text() {
@@ -30,27 +58,47 @@ void LUIText::update_text() {
     lui_cat.spam() << "Current text is '" << _text.c_str() << "'" << endl;
   }
 
-  // Remove all sprites which aren't required
-  while (_children.size() > len) {
+  int glyph_count = 0;
+  for (auto it = _children.begin(); it != _children.end(); ++it) {
+    if (*it != _background_sprite) {
+      ++glyph_count;
+    }
+  }
+
+  // Remove all glyph sprites which are no longer required.
+  while (glyph_count > len) {
     if (lui_cat.is_spam()) {
       lui_cat.spam() << "Removing sprite .. " << endl;
     }
-    remove_child(*_children.begin());
+
+    auto to_remove = _children.end();
+    for (auto it = _children.begin(); it != _children.end(); ++it) {
+      if (*it != _background_sprite) {
+        to_remove = it;
+        break;
+      }
+    }
+
+    if (to_remove == _children.end()) {
+      break;
+    }
+
+    remove_child(*to_remove);
+    --glyph_count;
   }
 
-  // Allocate as many sprites as required
-  int to_allocate  = len - _children.size();
+  // Allocate as many glyph sprites as required.
+  int to_allocate = len - glyph_count;
   for (int i = 0; i < to_allocate; ++i) {
     if (lui_cat.is_spam()) {
       lui_cat.spam() << "Allocating sprite .. " << endl;
     }
-    PT(LUISprite) sprite = new LUISprite(this);
 
-    // Required for smooth text rendering
+    PT(LUISprite) sprite = new LUISprite(this);
     sprite->set_snap_position(false);
   }
 
-  // Pixels per unit, used to convert betweeen coordinate spaces
+  // Pixels per unit, used to convert between coordinate spaces
   float ppu = _font_size;
   float line_height = _font->get_line_height();
 
@@ -59,21 +107,25 @@ void LUIText::update_text() {
   // Unreference all current glyphs
   _glyphs.clear();
 
-  // Iterate over the sprites
+  // Iterate over glyph sprites only.
   int char_idx = 0;
   float current_x_pos = 0.0f;
   float current_y_pos = 0.0f;
   float max_x_pos = 0.0f;
 
-  for (auto it = _children.begin(); it != _children.end(); ++it, ++char_idx)
-  {
+  for (auto it = _children.begin(); it != _children.end(); ++it) {
+    if (*it == _background_sprite) {
+      continue;
+    }
+
     LUIBaseElement* child = *it;
     LUISprite* sprite = DCAST(LUISprite, child);
 
-    // A lui text should have only sprites contained, otherwise something went wrong
     nassertv(sprite != nullptr);
+    nassertv(char_idx < len);
 
     int char_code = (int)_text.at(char_idx);
+    ++char_idx;
 
 #if PANDA_MAJOR_VERSION > 1 || PANDA_MINOR_VERSION >= 10
     CPT(TextGlyph) const_glyph;
@@ -81,7 +133,7 @@ void LUIText::update_text() {
     const TextGlyph* const_glyph;
 #endif
 
-    // Newline — handled for both wordwrap and non-wordwrap modes
+    // Newline - handled for both wordwrap and non-wordwrap modes
     if (char_code == 10) {
       sprite->hide();
       if (current_x_pos > max_x_pos) max_x_pos = current_x_pos;
@@ -91,7 +143,7 @@ void LUIText::update_text() {
     }
 
     if (_wordwrap) {
-      if(find(line_breaks.begin(), line_breaks.end(), char_idx) != line_breaks.end()) {
+      if (find(line_breaks.begin(), line_breaks.end(), char_idx - 1) != line_breaks.end()) {
         current_x_pos = 0;
         current_y_pos += floor(line_height * ppu);
       }
@@ -99,20 +151,20 @@ void LUIText::update_text() {
 
     if (!_font->get_glyph(char_code, const_glyph)) {
       sprite->set_texture(nullptr);
-      lui_cat.error() << "Font does not support character with char code " << char_code << ", ignoring .. target = " << _debug_name << endl;
+      lui_cat.error() << "Font does not support character with char code " << char_code
+                      << ", ignoring .. target = " << _debug_name << endl;
       continue;
     }
 
     CPT(DynamicTextGlyph) dynamic_glyph = DCAST(DynamicTextGlyph, const_glyph);
-
-    // If this gets executed, a non-dynamic font got loaded.
     nassertv(dynamic_glyph != nullptr);
 
     _glyphs.push_back(dynamic_glyph);
 
     // Some characters have no texture (like space)
     if (dynamic_glyph->get_page() == nullptr) {
-      lui_cat.debug() << "Character '" << (char)char_code << "' (Code: " << char_code << ") has no texture page!" << endl;
+      lui_cat.debug() << "Character '" << (char)char_code << "' (Code: " << char_code
+                      << ") has no texture page!" << endl;
       sprite->hide();
 
     } else {
@@ -123,11 +175,7 @@ void LUIText::update_text() {
       sprite->set_texture(dynamic_glyph->get_page());
 
       if (_glow_pass_only && _glow_radius_px > 0.0f) {
-        // Outer glow pass: expand the quad by 2× the kernel radius.
-        // The kernel samples at radius r — so at distance r from the glyph
-        // the kernel is already half-occluded (ga ~= 0.5). We need an extra r
-        // of border beyond that for ga to decay all the way to 0 smoothly.
-        // Expanding by 1× clips the gradient midway; 2× lets it reach zero.
+        // Outer glow pass: expand the quad by 2x the kernel radius.
         float exp = _glow_radius_px * 2.0f;
 
         int tex_w = dynamic_glyph->get_page()->get_x_size();
@@ -139,24 +187,24 @@ void LUIText::update_text() {
 
         sprite->set_pos(
           current_x_pos + dynamic_glyph->get_left() * ppu - exp,
-          (0.85 - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos - exp);
-        // Expand vertex UVs so final_uv at the border is outside the glyph UV
-        // region. The shader's distance falloff then fades ga to 0 at the edge.
+          (0.85f - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos - exp);
+
         sprite->set_uv_range(
           dynamic_glyph->get_uv_left()       - uv_exp_u,
           1 - dynamic_glyph->get_uv_top()    - uv_exp_v,
           dynamic_glyph->get_uv_right()      + uv_exp_u,
           1 - dynamic_glyph->get_uv_bottom() + uv_exp_v);
-        // Keep the kernel clamp at the ORIGINAL glyph bounds so samples never
-        // bleed into neighbouring atlas glyphs.
+
         sprite->set_clamp_uv_range(
           dynamic_glyph->get_uv_left(),
           1 - dynamic_glyph->get_uv_top(),
           dynamic_glyph->get_uv_right(),
           1 - dynamic_glyph->get_uv_bottom());
+
         sprite->set_size(
           (dynamic_glyph->get_right() - dynamic_glyph->get_left()) * ppu + 2.0f * exp,
           (dynamic_glyph->get_top()   - dynamic_glyph->get_bottom()) * ppu + 2.0f * exp);
+
         // Negative radius signals the shader to render only the halo, not the base glyph.
         sprite->set_glow(-_glow_radius_px, _glow_color);
       } else {
@@ -164,7 +212,7 @@ void LUIText::update_text() {
         sprite->clear_clamp_uv_range();
         sprite->set_pos(
           current_x_pos + dynamic_glyph->get_left() * ppu,
-          (0.85 - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos);
+          (0.85f - dynamic_glyph->get_top()) * ppu + 1 + current_y_pos);
         sprite->set_uv_range(
           dynamic_glyph->get_uv_left(),
           1 - dynamic_glyph->get_uv_top(),
@@ -176,36 +224,51 @@ void LUIText::update_text() {
         sprite->set_glow(_glow_radius_px > 0.0f ? _glow_radius_px : 0.0f, _glow_color);
       }
 
-      sprite->set_color(_color);
+      // Glyph tint is either inherited from parent-composed text color (default)
+      // or fixed to local text color while ignoring parent tint.
+      sprite->set_ignore_parent_color(_text_ignore_parent_color);
+      sprite->set_color(_text_ignore_parent_color ? _color : LColor(1));
     }
 
     // Break word wrapping
     if (_wordwrap && current_x_pos + dynamic_glyph->get_advance() * ppu > get_parent_width()) {
-      // glyph length longer then width, force to next line
       current_x_pos = 0;
       current_y_pos += floor(line_height * ppu);
-    }
-    else {
-
+    } else {
       // Trim left
       if (_wordwrap && current_x_pos == 0 && dynamic_glyph->get_page() == nullptr) {
         continue;
       }
 
-      // Move *cursor* by glyph length
+      // Move cursor by glyph advance
       current_x_pos += dynamic_glyph->get_advance() * ppu;
       if (current_x_pos > max_x_pos) max_x_pos = current_x_pos;
-
     }
-
-
   }
 
   if (_wordwrap) {
-    set_size( get_parent_width(), floor(current_y_pos + line_height * ppu));
+    set_size(get_parent_width(), floor(current_y_pos + line_height * ppu));
+  } else {
+    set_size(floor(max_x_pos), floor(current_y_pos + line_height * ppu));
   }
-  else {
-    set_size( floor(max_x_pos), floor(current_y_pos + line_height * ppu));
+
+  if (_background_sprite != nullptr) {
+    sync_background_sprite();
+  }
+}
+
+void LUIText::set_color(const LColor& color) {
+  LUIColorable::set_color(color);
+
+  // Keep already allocated glyph sprites in sync without requiring a re-layout.
+  for (auto it = _children.begin(); it != _children.end(); ++it) {
+    LUISprite* sprite = DCAST(LUISprite, *it);
+    if (sprite == nullptr || sprite == _background_sprite) {
+      continue;
+    }
+
+    sprite->set_ignore_parent_color(_text_ignore_parent_color);
+    sprite->set_color(_text_ignore_parent_color ? _color : LColor(1));
   }
 }
 
@@ -293,26 +356,31 @@ vector<int> LUIText::get_line_breaks() {
     float line_start = 0.0f;
     float ppu = _font_size;
 
-    for (auto it = _children.begin(); it != _children.end(); ++it, ++char_idx)
-    {
+    for (auto it = _children.begin(); it != _children.end(); ++it) {
+      if (*it == _background_sprite) {
+        continue;
+      }
+
       LUIBaseElement* child = *it;
       LUISprite* sprite = DCAST(LUISprite, child);
 
-      // A lui text should have only sprites contained, otherwise something went wrong
       nassertr(sprite != nullptr, result);
+      nassertr(char_idx < (int)_text.size(), result);
 
       int char_code = (int)_text.at(char_idx);
+      int glyph_char_idx = char_idx;
+      ++char_idx;
 
 #if PANDA_MAJOR_VERSION > 1 || PANDA_MINOR_VERSION >= 10
-    CPT(TextGlyph) const_glyph;
+      CPT(TextGlyph) const_glyph;
 #else
-    const TextGlyph* const_glyph;
+      const TextGlyph* const_glyph;
 #endif
 
       // Character is a newline, so lets include this in our list.
       if (char_code == 10) {
-        result.push_back(char_idx);
-        word_start = char_idx;
+        result.push_back(glyph_char_idx);
+        word_start = glyph_char_idx;
         word_start_pos = future_x_pos;
         line_start = future_x_pos;
         continue;
@@ -320,43 +388,32 @@ vector<int> LUIText::get_line_breaks() {
 
       if (!_font->get_glyph(char_code, const_glyph)) {
         sprite->set_texture(nullptr);
-        lui_cat.error() << "Font does not support character with char code " << char_code << ", ignoring .. target = " << _debug_name << endl;
+        lui_cat.error() << "Font does not support character with char code " << char_code
+                        << ", ignoring .. target = " << _debug_name << endl;
         continue;
       }
 
       CPT(DynamicTextGlyph) dynamic_glyph = DCAST(DynamicTextGlyph, const_glyph);
-
-      // If this gets executed, a non-dynamic font got loaded.
       nassertr(dynamic_glyph != nullptr, result);
 
       _glyphs.push_back(dynamic_glyph);
 
-      // If a space, lets mark this as the start of the word.
+      // If a space, mark this as the start of the next word.
       if (dynamic_glyph->get_page() == nullptr) {
-        word_start = char_idx;
+        word_start = glyph_char_idx;
         word_start_pos = future_x_pos + dynamic_glyph->get_advance() * ppu;
       }
 
-      // If adding the glyph to the current position on this line will force it over
-      // the width of the label, put a new line at the start of the word.
-      if (((future_x_pos - line_start) + (dynamic_glyph->get_advance() * ppu))  > get_parent_width()) {
+      // If adding the glyph will force overflow, break at word start.
+      if (((future_x_pos - line_start) + (dynamic_glyph->get_advance() * ppu)) > get_parent_width()) {
         result.push_back(word_start);
-        // After the newline is added, we update the current lines start position.
         line_start = word_start_pos;
       }
 
-      // Move the cursor along by the glyph's width.
+      // Move the cursor along by the glyph width.
       future_x_pos += dynamic_glyph->get_advance() * ppu;
-
     }
-
   }
 
   return result;
-
-}
-
-void LUIText::set_color(const LColor& color) {
-  LUIObject::set_color(color);
-  update_text(); // Re-render text with new color
 }
